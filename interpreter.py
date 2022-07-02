@@ -1,6 +1,7 @@
 from enum import Enum
 
 SYMBOLS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+OPERATORS = "/*-+?!#€%|¬"
 
 
 class Tok(Enum):
@@ -10,6 +11,7 @@ class Tok(Enum):
     EQUAL = "EQUAL"
     RULE = "RULE"
     STRING = "STRING"
+    OPERATOR = "OPERATOR"
 
     def __str__(self):
         return self.value
@@ -51,6 +53,9 @@ class Lexer:
                 self.advance()
             elif self.current_char == "=":
                 tokens.append(Token(Tok.EQUAL))
+                self.advance()
+            elif self.current_char in OPERATORS:
+                tokens.append(Token(Tok.OPERATOR, self.current_char))
                 self.advance()
             elif self.current_char in SYMBOLS:
                 string = self.make_string()
