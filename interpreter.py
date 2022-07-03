@@ -1,7 +1,7 @@
 from enum import Enum
 
-SYMBOLS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-OPERATORS = "/*-+?!#€%|¬"
+SYMBOLS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+OPERATORS = "/*-+?!#€%|¬^:&¿"
 
 
 class Tok(Enum):
@@ -9,9 +9,11 @@ class Tok(Enum):
     LPAREN = "LPAREN"
     COMMA = "COMMA"
     EQUAL = "EQUAL"
-    RULE = "RULE"
+    DEF = "DEF"
     STRING = "STRING"
     OPERATOR = "OPERATOR"
+    APPLY = "APPLY"
+    DOT = "DOT"
 
     def __str__(self):
         return self.value
@@ -40,7 +42,7 @@ class Lexer:
     def tokenize(self):
         tokens = []
         while self.current_char is not None:
-            if self.current_char in " \t\n ":
+            if self.current_char in " \t\n":
                 self.advance()
             if self.current_char == "(":
                 tokens.append(Token(Tok.LPAREN))
@@ -54,19 +56,26 @@ class Lexer:
             elif self.current_char == "=":
                 tokens.append(Token(Tok.EQUAL))
                 self.advance()
+            elif self.current_char == ".":
+                tokens.append(Token(Tok.DOT))
+                self.advance()
             elif self.current_char in OPERATORS:
                 tokens.append(Token(Tok.OPERATOR, self.current_char))
                 self.advance()
             elif self.current_char in SYMBOLS:
                 string = self.make_string()
-                if string == "rule":
-                    tokens.append(Token(Tok.RULE))
+                if string == "def":
+                    tokens.append(Token(Tok.DEF))
+                elif string == "apply":
+                    tokens.append(Token(Tok.APPLY))
                 else:
                     tokens.append(Token(Tok.STRING, string))
+            else:
+                raise ValueError(f"Invalid character: {self.current_char}")
         return tokens
 
     def make_string(self):
-        string: str = self.current_char
+        string = self.current_char
         self.advance()
         while self.current_char is not None and self.current_char in SYMBOLS:
             string += self.current_char
