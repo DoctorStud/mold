@@ -1,5 +1,4 @@
 from typing import Union
-import pprint
 
 
 class Sym:
@@ -41,12 +40,12 @@ class Op:
 
     def __str__(self):
         if isinstance(self.left, Op) and isinstance(self.right, Op):
-            return f"({self.left}){self.name}({self.right})"
+            return f"({self.left}) {self.name} ({self.right})"
         elif isinstance(self.left, Op):
-            return f"({self.left}){self.name}{self.right}"
+            return f"({self.left}) {self.name} {self.right}"
         elif isinstance(self.right, Op):
-            return f"{self.left}{self.name}({self.right})"
-        return f"{self.left}{self.name}{self.right}"
+            return f"{self.left} {self.name} ({self.right})"
+        return f"{self.left} {self.name} {self.right}"
 
     def __hash__(self):
         return hash(self.name)
@@ -69,36 +68,44 @@ class Def:
 
     def apply(self, expr: Expr, match_lvl: int) -> Expr:
         if bindings := pattern_match(self.head, expr, match_lvl):
-            return self.substitute(bindings, expr, match_lvl)
+            return self.find(bindings, expr, match_lvl)
 
-    def substitute(self, bindings, expr, match_lvl: int) -> Expr:
+    def find(self, bindings, expr, match_lvl: int) -> Expr:
         if match_lvl != 0:
             if isinstance(expr, Op):
-                expr.left = self.substitute(bindings, expr.left, match_lvl - 1)
-                expr.right = self.substitute(bindings, expr.right, match_lvl - 1)
+                expr.left = self.find(bindings, expr.left, match_lvl - 1)
+                expr.right = self.find(bindings, expr.right, match_lvl - 1)
                 return expr
             if isinstance(expr, Fun):
                 new_args = [
-                    self.substitute(bindings, arg, match_lvl - 1) for arg in expr.args
+                    self.find(bindings, arg, match_lvl - 1) for arg in expr.args
                 ]
                 expr.args = new_args
                 return expr
         else:
             if isinstance(expr, Sym) and any(bindings[i] == expr for i in bindings):
-                return bindings.get(self.body, self.body)
+                return self.substitute(bindings)
             if (
                 isinstance(expr, Op)
                 and any(bindings[i] == expr.left for i in bindings)
                 and any(bindings[i] == expr.right for i in bindings)
             ):
-                new_left = bindings.get(self.body.left, self.body.left)
-                new_right = bindings.get(self.body.right, self.body.right)
-                return Op(new_left, expr.name, new_right)
+                return self.substitute(bindings)
             if isinstance(expr, Fun) and set(expr.args).issubset(bindings.values()):
-                new_name = bindings.get(self.body.name, self.body.name)
-                new_args = [bindings.get(arg, arg) for arg in self.body.args]
-                return Fun(new_name, *new_args)
+                return self.substitute(bindings)
         return expr
+
+    def substitute(self, bindings):
+        if isinstance(self.body, Sym):
+            return bindings.get(self.body, self.body)
+        if isinstance(self.body, Fun):
+            new_name = bindings.get(self.body.name, self.body.name)
+            new_args = [bindings.get(arg, arg) for arg in self.body.args]
+            return Fun(new_name, *new_args)
+        if isinstance(self.body, Op):
+            new_left = bindings.get(self.body.left, self.body.left)
+            new_right = bindings.get(self.body.right, self.body.right)
+            return Op(new_left, self.body.name, new_right)
 
 
 def pattern_match(pattern: Expr, value: Expr, match_lvl: int) -> dict:
