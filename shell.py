@@ -7,9 +7,10 @@ def main():
         if text == "quit":
             quit()
         lexer = Lexer(text)
-        print(lexer.tokenize())
-        parser = Parser(lexer.tokenize())
-        parser.parse()
+        tokens = lexer.tokenize()
+        print(tokens)
+        result = Parser(tokens).parse()
+        print("Resultat: ", result)
 
 
 if __name__ == "__main__":
