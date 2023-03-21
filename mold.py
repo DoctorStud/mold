@@ -1,11 +1,9 @@
-from typing import Union
-
 
 class Sym:
-    def __init__(self, name: str):
+    def __init__(self, name):
         self.name = name
 
-    def __str__(self):
+    def __repr__(self):
         return self.name
 
     def __hash__(self):
@@ -15,30 +13,43 @@ class Sym:
         return self.__hash__() == other.__hash__()
 
 
-class Fun:
-    def __init__(self, name: str, *argv: list[Union[Sym, "Fun"]]):
+class Var:
+    def __init__(self, name):
         self.name = name
-        self.args = argv
 
-    def __str__(self):
-        args_len = len(self.args)
+    def __repr__(self):
+        return f"{{{self.name}}}"
+
+    def __hash__(self):
+        return 2*hash(self.name)
+
+    def __eq__(self, other):
+        return self.__hash__() == other.__hash__()
+
+
+class Fun:
+    def __init__(self, name, *args):
+        self.name = name
+        self.args = args
+
+    def __repr__(self):
         args = ", ".join(f"{arg}" for arg in self.args)
         return f"{self.name}({args})"
 
     def __hash__(self):
-        return hash(self.name)
+        return 3*hash(self.name)
 
     def __eq__(self, other):
         return self.__hash__() == other.__hash__()
 
 
 class Op:
-    def __init__(self, left: str, name: str, right: str):
+    def __init__(self, left, name, right):
         self.name = name
         self.left = left
         self.right = right
 
-    def __str__(self):
+    def __repr__(self):
         if isinstance(self.left, Op) and isinstance(self.right, Op):
             return f"({self.left}) {self.name} ({self.right})"
         elif isinstance(self.left, Op):
@@ -48,41 +59,23 @@ class Op:
         return f"{self.left} {self.name} {self.right}"
 
     def __hash__(self):
-        return hash(self.name)
+        return 4*hash(self.name)
 
     def __eq__(self, other):
         return self.__hash__() == other.__hash__()
 
 
-Expr = Union[Sym, Fun, Op]
-
-
 class Def:
-    def __init__(self, name: str, head: Expr, body: Expr):
+    def __init__(self, name, head, body):
         self.name = name
         self.head = head
         self.body = body
 
-    def __str__(self):
+    def __repr__(self):
         return f"{self.name} := {self.head.__str__()} = {self.body.__str__()}"
 
-    def apply(self, expr: Expr, match_lvl: int) -> Expr:
-        if bindings := pattern_match(self.head, expr, match_lvl):
-            return self.find(bindings, expr, match_lvl)
-
-    def find(self, bindings, expr, match_lvl: int) -> Expr:
-        if match_lvl != 0:
-            if isinstance(expr, Op):
-                expr.left = self.find(bindings, expr.left, match_lvl - 1)
-                expr.right = self.find(bindings, expr.right, match_lvl - 1)
-                return expr
-            if isinstance(expr, Fun):
-                new_args = [
-                    self.find(bindings, arg, match_lvl - 1) for arg in expr.args
-                ]
-                expr.args = new_args
-                return expr
-        else:
+    def apply(self, expr):
+        if bindings := pattern_match(self.head, expr):
             if isinstance(expr, Sym) and any(bindings[i] == expr for i in bindings):
                 return self.substitute(bindings)
             if (
@@ -93,7 +86,6 @@ class Def:
                 return self.substitute(bindings)
             if isinstance(expr, Fun) and set(expr.args).issubset(bindings.values()):
                 return self.substitute(bindings)
-        return expr
 
     def substitute(self, bindings):
         if isinstance(self.body, Sym):
@@ -108,46 +100,49 @@ class Def:
             return Op(new_left, self.body.name, new_right)
 
 
-def pattern_match(pattern: Expr, value: Expr, match_lvl: int) -> dict:
+def pattern_match(pattern, expr):
     bindings = {}
-    if pattern_match_impl(pattern, value, bindings, match_lvl):
+    if pattern_match_impl(pattern, expr, bindings):
         return bindings
-    return None
 
 
-def pattern_match_impl(
-    pattern: Expr, value: Expr, bindings: dict, match_lvl: int
-) -> bool:
-    if match_lvl != 0:
-        if isinstance(value, Op):
-            pattern_match_impl(pattern, value.left, bindings, match_lvl - 1)
-            pattern_match_impl(pattern, value.right, bindings, match_lvl - 1)
-            return True
-        if isinstance(value, Fun):
-            return any(
-                pattern_match_impl(pattern, value.args[i], bindings, match_lvl - 1)
-                for i in range(len(value.args))
-            )
-        return False
-    else:
-        if isinstance(pattern, Sym):
-            if pattern in bindings:
-                return bindings[pattern] == value
-            bindings[pattern] = value
-            return True
-        if isinstance(pattern, Fun) and isinstance(value, Fun):
-            if pattern != value or len(pattern.args) != len(value.args):
-                return False
-            return all(
-                pattern_match_impl(pattern.args[i], value.args[i], bindings, match_lvl)
-                for i in range(len(pattern.args))
-            )
-        if (
-            isinstance(pattern, Op)
-            and isinstance(value, Op)
-            and pattern.name == value.name
-        ):
-            pattern_match_impl(pattern.left, value.left, bindings, match_lvl)
-            pattern_match_impl(pattern.right, value.right, bindings, match_lvl)
-            return True
-    return False
+def pattern_match_impl(pattern, expr, bindings):
+    if isinstance(pattern, Var):
+        if pattern in bindings:
+            return bindings[pattern] == expr
+        bindings[pattern] = expr
+        return True
+    if isinstance(pattern, Sym) and expr == pattern:
+        bindings[pattern] = expr
+        return True
+    if isinstance(pattern, Fun) and isinstance(expr, Fun):
+        if pattern != expr or len(pattern.args) != len(expr.args):
+            return False
+        return all(
+            pattern_match_impl(
+                pattern.args[i], expr.args[i], bindings)
+            for i, _ in enumerate(pattern.args))
+
+    if isinstance(pattern, Op) and isinstance(expr, Op) and pattern.name == expr.name:
+        pattern_match_impl(pattern.left, expr.left, bindings)
+        pattern_match_impl(pattern.right, expr.right, bindings)
+        return True
+
+
+def list_nodes(expr, nodes=None):
+    if nodes is None:
+        nodes = []
+    if isinstance(expr, Sym) or isinstance(expr, Var):
+        nodes.append(expr)
+        return nodes
+    if isinstance(expr, Fun):
+        nodes.append(expr)
+        for arg in expr.args:
+            list_nodes(arg, nodes)
+        return nodes
+    if isinstance(expr, Op):
+        nodes.append(expr)
+        list_nodes(expr.right, nodes)
+        list_nodes(expr.left, nodes)
+        return nodes
+    return nodes
