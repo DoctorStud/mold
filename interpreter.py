@@ -106,21 +106,22 @@ class Lexer:
 
 
 class Parser:
-    def __init__(self, tokens):
+    def __init__(self):
+        self.defs = {}
+
+    def parse(self, tokens):
         self.tokens = iter(tokens)
         self.next_token = None
         self.current_token = None
         self.list = []
         self.advance()
+        while self.next_token:
+            self.list.append(self.expr())
+        return self.list[-1]
 
     def advance(self):
         self.current_token, self.next_token = self.next_token, next(
             self.tokens, None)
-
-    def parse(self):
-        while self.next_token:
-            self.list.append(self.expr())
-        return self.list[-1]
 
     def accept(self, token_type):
         if self.next_token and self.next_token.type == token_type:
@@ -142,12 +143,28 @@ class Parser:
             self.advance()
             if self.check_type(Tok.LPAREN):
                 return self.fun(name)
+            elif self.check_type(Tok.DEF):
+                self.advance()
+                return self._def(name)
             else:
                 return self.sym(name)
         elif self.check_type(Tok.LBRACKET):
             return self.var()
         elif self.check_type(Tok.OPERATOR):
             return self.op()
+        elif self.check_type(Tok.APPLY):
+            self.advance()
+            name = self.next_token.value
+            self.expect(Tok.STRING)
+            return self.apply(name)
+        elif self.check_type(Tok.LPAREN):
+            self.advance()
+            while self.next_token:
+                if self.next_token.type == Tok.RPAREN:
+                    self.advance()
+                    return self.list[-1]
+                self.list.append(self.expr())
+            return self.list[-1]
 
     def var(self):
         self.advance()
@@ -160,7 +177,8 @@ class Parser:
         return Sym(name)
 
     def op(self,):
-        print(self.list)
+        if len(self.list) == 0:
+            raise SyntaxError("Missing left operand")
         left_op = self.list[-1]
         op = self.next_token
         self.advance()
@@ -187,3 +205,25 @@ class Parser:
             if self.next_token.type == Tok.OPERATOR:
                 args.pop()
         return args
+
+    def _def(self, name):
+        head = self.expr()
+        while self.check_type(Tok.OPERATOR):
+            self.list.append(head)
+            head = self.expr()
+        self.expect(Tok.EQUAL)
+        body = self.expr()
+        _def = Def(name, head, body)
+        self.defs[name] = _def
+        return _def
+
+    def apply(self, name):
+        expr = self.expr()
+        return self.defs[name].apply(expr)
+
+
+def print_bindings(bindings: dict):
+    print("{")
+    for key, val in bindings.items():
+        print(f"  {key} => {val}")
+    print("}")
