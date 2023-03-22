@@ -120,7 +120,7 @@ class Parser:
     def parse(self):
         while self.next_token:
             self.list.append(self.expr())
-        return self.list
+        return self.list[-1]
 
     def accept(self, token_type):
         if self.next_token and self.next_token.type == token_type:
@@ -159,7 +159,8 @@ class Parser:
     def sym(self, name):
         return Sym(name)
 
-    def op(self):
+    def op(self,):
+        print(self.list)
         left_op = self.list[-1]
         op = self.next_token
         self.advance()
@@ -173,12 +174,16 @@ class Parser:
 
     def args(self):
         args = []
-
         while self.next_token:
             if self.next_token.type == Tok.RPAREN:
                 self.advance()
                 return args
-            if self.next_token.type == Tok.COMMA:
+            elif self.next_token.type == Tok.COMMA:
                 self.advance()
-            args.append(self.expr())
+                continue
+            expr = self.expr()
+            self.list.append(expr)
+            args.append(expr)
+            if self.next_token.type == Tok.OPERATOR:
+                args.pop()
         return args
