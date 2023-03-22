@@ -10,6 +10,11 @@ class ExpectedTokenError(Exception):
         super().__init__(f"Expected token: {token}")
 
 
+class MissingOperandError(Exception):
+    def __init__(self, side):
+        super().__init__(f"Missing {side} operand")
+
+
 class Tok(Enum):
     RPAREN = "RPAREN"
     LPAREN = "LPAREN"
@@ -50,10 +55,10 @@ class Lexer:
 
     def tokenize(self):
         tokens = []
-        while self.current_char is not None:
+        while self.current_char:
             if self.current_char in " \t\n":
                 self.advance()
-            if self.current_char == "(":
+            elif self.current_char == "(":
                 tokens.append(Token(Tok.LPAREN))
                 self.advance()
             elif self.current_char == ")":
@@ -99,7 +104,7 @@ class Lexer:
 
     def make_string(self):
         string = ""
-        while self.current_char is not None and self.current_char in SYMBOLS:
+        while self.current_char and self.current_char in SYMBOLS:
             string += self.current_char
             self.advance()
         return string
@@ -108,6 +113,7 @@ class Lexer:
 class Parser:
     def __init__(self):
         self.defs = {}
+        self.last = None
 
     def parse(self, tokens):
         self.tokens = iter(tokens)
@@ -117,7 +123,8 @@ class Parser:
         self.advance()
         while self.next_token:
             self.list.append(self.expr())
-        return self.list[-1]
+        self.last = self.list[-1]
+        return self.last
 
     def advance(self):
         self.current_token, self.next_token = self.next_token, next(
@@ -176,13 +183,15 @@ class Parser:
     def sym(self, name):
         return Sym(name)
 
-    def op(self,):
+    def op(self):
         if len(self.list) == 0:
-            raise SyntaxError("Missing left operand")
+            raise MissingOperandError("left")
         left_op = self.list[-1]
         op = self.next_token
         self.advance()
         right_op = self.expr()
+        if right_op is None:
+            raise MissingOperandError("right")
         return Op(left_op, op.value, right_op)
 
     def fun(self, name):
@@ -213,17 +222,18 @@ class Parser:
             head = self.expr()
         self.expect(Tok.EQUAL)
         body = self.expr()
+        while self.check_type(Tok.OPERATOR):
+            self.list.append(body)
+            body = self.expr()
         _def = Def(name, head, body)
         self.defs[name] = _def
         return _def
 
     def apply(self, name):
         expr = self.expr()
+        if expr is None:
+            expr = self.last
+        while self.check_type(Tok.OPERATOR):
+            self.list.append(expr)
+            expr = self.expr()
         return self.defs[name].apply(expr)
-
-
-def print_bindings(bindings: dict):
-    print("{")
-    for key, val in bindings.items():
-        print(f"  {key} => {val}")
-    print("}")
