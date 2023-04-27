@@ -1,5 +1,6 @@
 from enum import Enum
-from mold import Var, Fun, Sym, Op, Def
+from expr import Var, Fun, Sym, Op, Def
+from collections import OrderedDict
 
 SYMBOLS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ñç"
 OPERATORS = "/*-+?!#€%|¬^&<>"
@@ -16,6 +17,8 @@ class MissingOperandError(Exception):
 
 
 class Tok(Enum):
+    EOL = "EOL"
+    COMMENT = "COMMENT"
     RPAREN = "RPAREN"
     LPAREN = "LPAREN"
     COMMA = "COMMA"
@@ -42,21 +45,40 @@ class Token:
 
 
 class Lexer:
-    def __init__(self, text: str):
-        self.text = text
-        self.pos = -1
+    def __init__(self, file=None, lines=None):
+        if file:
+            self.file = file
+            try:
+                with open(self.file) as f:
+                    self.lines = f.readlines()
+            except FileNotFoundError as e:
+                raise e
+        elif lines:
+            self.lines = lines
+        self.current_line = None
+        self.char_pos = -1
         self.current_char = None
-        self.advance()
+        self.tokens = []
 
     def advance(self):
-        self.pos += 1
-        self.current_char = self.text[self.pos] if self.pos < len(
-            self.text) else None
+        self.char_pos += 1
+        self.current_char = self.current_line[self.char_pos] if self.char_pos < len(
+            self.current_line) else None
 
     def tokenize(self):
+        for line in self.lines:
+            self.current_line = line
+            self.char_pos = -1
+            self.advance()
+            self.tokens.extend(self.tokenize_line())
+        return self.tokens
+
+    def tokenize_line(self):
         tokens = []
         while self.current_char:
-            if self.current_char in " \t\n":
+            if self.current_char in "\n":
+                return tokens
+            elif self.current_char in " \t":
                 self.advance()
             elif self.current_char == "(":
                 tokens.append(Token(Tok.LPAREN))
@@ -87,6 +109,10 @@ class Lexer:
                 else:
                     print(f"Error")
                     break
+            elif self.current_char == "/":
+                self.advance()
+                if self.current_char == "/":
+                    return tokens
             elif self.current_char in OPERATORS:
                 tokens.append(Token(Tok.OPERATOR, self.current_char))
                 self.advance()
@@ -98,7 +124,8 @@ class Lexer:
                 else:
                     tokens.append(Token(Tok.STRING, string))
             else:
-                print(f"Invalid character: '{self.current_char}'")
+                print(
+                    f"Invalid character: '{self.current_char}' at ({self.lines.index(self.current_line)}, {self.char_pos})")
                 break
         return tokens
 
@@ -111,11 +138,19 @@ class Lexer:
 
 
 class Parser:
-    def __init__(self):
+    def __init__(self, debug):
         self.defs = {}
-        self.last = None
+        self.debug = debug
+        self.last_result = None
+        self.result = OrderedDict()
+
+    def output(self):
+        for body, result in self.result.items():
+            print(f"{body[0]} => {result}")
 
     def parse(self, tokens):
+        if not tokens:
+            return self.result
         self.tokens = iter(tokens)
         self.next_token = None
         self.current_token = None
@@ -123,8 +158,8 @@ class Parser:
         self.advance()
         while self.next_token:
             self.list.append(self.expr())
-        self.last = self.list[-1]
-        return self.last
+        self.output()
+        return self.result
 
     def advance(self):
         self.current_token, self.next_token = self.next_token, next(
@@ -208,11 +243,11 @@ class Parser:
             elif self.next_token.type == Tok.COMMA:
                 self.advance()
                 continue
+            elif self.next_token.type == Tok.OPERATOR:
+                args.pop()
             expr = self.expr()
             self.list.append(expr)
             args.append(expr)
-            if self.next_token.type == Tok.OPERATOR:
-                args.pop()
         return args
 
     def _def(self, name):
@@ -230,10 +265,11 @@ class Parser:
         return _def
 
     def apply(self, name):
-        expr = self.expr()
-        if expr is None:
-            expr = self.last
+        body = self.expr()
         while self.check_type(Tok.OPERATOR):
-            self.list.append(expr)
-            expr = self.expr()
-        return self.defs[name].apply(expr)
+            self.list.append(body)
+            body = self.expr()
+        self.result[(body, name)] = self.defs[name].apply(
+            body, debug=self.debug)
+        self.last_result = self.result[(body, name)]
+        return self.result[(body, name)]
