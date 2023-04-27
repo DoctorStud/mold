@@ -1,16 +1,16 @@
 from interpreter import Lexer, Parser
 
 
-def main():
+def shell():
     parser = Parser()
     while True:
-        text = input("> ")
-        if text == "quit":
+        line = input("> ")
+        if line == "quit":
             quit()
-        lexer = Lexer(text)
+        lexer = Lexer(lines=[line])
         tokens = lexer.tokenize()
-        print("=> ", parser.parse(tokens))
+        parser.parse(tokens)
 
 
 if __name__ == "__main__":
-    main()
+    shell()
