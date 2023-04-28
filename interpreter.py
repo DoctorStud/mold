@@ -28,6 +28,8 @@ class Tok(Enum):
     OPERATOR = "OPERATOR"
     APPLY = "APPLY"
     DOT = "DOT"
+    LSQBRACKET = "LSQBRACKET"
+    RSQBRACKET = "RSQBRACKET"
     LBRACKET = "LBRACKET"
     RBRACKET = "RBRACKET"
 
@@ -101,6 +103,12 @@ class Lexer:
             elif self.current_char == "}":
                 tokens.append(Token(Tok.RBRACKET))
                 self.advance()
+            elif self.current_char == "]":
+                tokens.append(Token(Tok.RSQBRACKET))
+                self.advance()
+            elif self.current_char == "[":
+                tokens.append(Token(Tok.LSQBRACKET))
+                self.advance()
             elif self.current_char == ":":
                 self.advance()
                 if self.current_char == "=":
@@ -138,7 +146,7 @@ class Lexer:
 
 
 class Parser:
-    def __init__(self, debug):
+    def __init__(self, debug=False):
         self.defs = {}
         self.debug = debug
         self.last_result = None
@@ -196,9 +204,15 @@ class Parser:
             return self.op()
         elif self.check_type(Tok.APPLY):
             self.advance()
+            strat = None
             name = self.next_token.value
             self.expect(Tok.STRING)
-            return self.apply(name)
+            if self.check_type(Tok.LSQBRACKET):
+                self.advance()
+                strat = self.next_token.value
+                self.expect(Tok.STRING)
+                self.expect(Tok.RSQBRACKET)
+            return self.apply(name, strat=strat)
         elif self.check_type(Tok.LPAREN):
             self.advance()
             while self.next_token:
@@ -264,12 +278,17 @@ class Parser:
         self.defs[name] = _def
         return _def
 
-    def apply(self, name):
-        body = self.expr()
+    def apply(self, name, strat):
+        if self.next_token is None:
+            body = self.last_result
+        elif self.check_type(Tok.DEF) or self.check_type(Tok.APPLY):
+            body = self.last_result
+        else:
+            body = self.expr()
         while self.check_type(Tok.OPERATOR):
             self.list.append(body)
             body = self.expr()
         self.result[(body, name)] = self.defs[name].apply(
-            body, debug=self.debug)
+            body, strat=strat, debug=self.debug)
         self.last_result = self.result[(body, name)]
         return self.result[(body, name)]

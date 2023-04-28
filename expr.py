@@ -92,41 +92,53 @@ class Def:
     def __repr__(self):
         return f"{self.name} := {self.head.__str__()} = {self.body.__str__()}"
 
-    def apply(self, expr, debug=False):
+    def apply(self, expr, strat=None, debug=False):
         if bindings := pattern_match(self.head, expr):
             if debug:
                 print_bindings(bindings)
-            return self.substitute(self.body, bindings)
+            return self.substitute(self.body, bindings, strat=strat, debug=debug)
         else:
             if isinstance(expr, Sym):
                 return expr
             elif isinstance(expr, Op):
-                left = self.apply(expr.left)
-                right = self.apply(expr.right)
+                left = self.apply(expr.left, strat=strat, debug=debug)
+                right = self.apply(expr.right, strat=strat, debug=debug)
                 return Op(left, expr.name, right)
             elif isinstance(expr, Fun):
-                new_args = [self.apply(arg) for arg in expr.args]
+                new_args = [self.apply(arg, strat=strat, debug=debug)
+                            for arg in expr.args]
                 return Fun(expr.name, *new_args)
 
-    def substitute(self, expr, bindings):
+    def substitute(self, expr, bindings, strat=None, debug=False):
         if isinstance(expr, Sym):
             return bindings.get(expr, expr)
         if isinstance(expr, Op):
             if bindings.get(expr):
                 return bindings[expr]
             else:
-                new_left = bindings.get(self.body.left, self.body.left)
-                new_right = bindings.get(self.body.right, self.body.right)
-                return Op(new_left, self.body.name, new_right)
+                if strat == "all":
+                    new_left = self.apply(bindings.get(
+                        self.body.left, self.body.left), strat=strat, debug=debug)
+                    new_right = self.apply(bindings.get(
+                        self.body.right, self.body.right), strat=strat, debug=debug)
+                    return Op(new_left, self.body.name, new_right)
+                else:
+                    new_left = bindings.get(self.body.left, self.body.left)
+                    new_right = bindings.get(self.body.right, self.body.right)
+                    return Op(new_left, self.body.name, new_right)
 
         if isinstance(expr, Fun):
             if bindings.get(expr):
                 return bindings[expr]
             else:
-                new_name = expr.name
-                new_args = [self.apply(bindings.get(arg))
-                            for arg in expr.args]
-                return Fun(new_name, *new_args)
+                if strat == "all":
+                    new_args = [self.apply(bindings.get(arg), strat=strat, debug=debug)
+                                for arg in expr.args]
+                    return Fun(self.body.name, *new_args)
+                else:
+                    new_args = [bindings.get(arg)
+                                for arg in expr.args]
+                    return Fun(self.body.name, *new_args)
 
 
 def pattern_match(pattern, expr):
@@ -145,7 +157,7 @@ def pattern_match_impl(pattern, expr, bindings):
         bindings[pattern] = expr
         return True
     if isinstance(pattern, Fun) and isinstance(expr, Fun):
-        if len(pattern.args) != len(expr.args):
+        if pattern.name == expr.name and len(pattern.args) != len(expr.args):
             return False
         return all(
             pattern_match_impl(
