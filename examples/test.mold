@@ -1,0 +1,4 @@
+swap := pair(x, y) =     pair(y, x) 
+
+
+invert := pos(x) = neg(x)
