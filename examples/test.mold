@@ -1,4 +1,6 @@
-swap := pair(x, y) =     pair(y, x) 
+shape swap: pair(?x, ?y) => pair(?y, ?x) 
 
+// patata
+set expr: pair(A, B)
 
-invert := pos(x) = neg(x)
+mold expr with swap

@@ -4,20 +4,25 @@
 #include "node.h"
 
 typedef enum {
-    TOK_VARIABLE,
-    TOK_STRING,
+    TOK_VAR,
+    TOK_NAME,
     TOK_DEF,
     TOK_EQUAL,
     TOK_LPAREN,
     TOK_RPAREN,
     TOK_COMMA,
+    TOK_MOLD,
+    TOK_WITH,
+    TOK_SHAPE,
+    TOK_SET,
+    TOK_TO,
     TOK_EOF
 } TokenType;
 
 typedef struct {
     TokenType type;
     size_t position;
-    char * name;
+    char* name;
 } Token;
 
 typedef struct {
@@ -29,15 +34,16 @@ typedef struct {
 } Lexer;
 
 typedef struct {
+    char* name;
     Node* lhs;
     Node* rhs;
-} Rule;
+} Shape;
 
 typedef struct {
     size_t token_count;
     Token** tokens;
     size_t current;
-    Rule* rules; 
+    Shape* shapes; 
 
 } Parser;
 
@@ -52,6 +58,7 @@ void tokenize(Lexer* lexer);
 Token* create_token(TokenType type, const char * name, size_t position);
 void free_lexer(Lexer* lexer);
 void add_token(Token* token, Lexer* lexer);
+char* build_name(Lexer* lexer);
 
 
 #endif

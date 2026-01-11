@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
     tokenize(lexer);
 
     for (int i = 0; i<lexer->token_count;i++){
-        printf("%zu -> %s\n", lexer->tokens[i]->position, lexer->tokens[i]->name);
+        printf("%zu -> %s (%d) \n", lexer->tokens[i]->position, lexer->tokens[i]->name, lexer->tokens[i]->type);
     }
     
     free_lexer(lexer);

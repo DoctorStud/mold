@@ -108,16 +108,25 @@ void tokenize(Lexer* lexer){
         skip_whitespaces(lexer);
         char c = lexer->source[lexer->current];
         switch (c){
+            case '?':
+                size_t start = lexer->current;
+                advance(lexer);
+                
+                char* name = build_name(lexer);
+                add_token(create_token(TOK_VAR, name, start), lexer);
+                free(name);
+
+                continue;
             case ':':
-                if (peek(lexer) == '=') {
-                    add_token(create_token(TOK_DEF, ":=", lexer->current), lexer);
-                    advance(lexer);
-                } else{
-                    add_token(create_token(TOK_STRING, ":", lexer->current), lexer);
-                }
+                add_token(create_token(TOK_DEF, ":", lexer->current), lexer);
                 break;
             case '=':
-                add_token(create_token(TOK_EQUAL, "=", lexer->current), lexer);
+                if (peek(lexer) == '>') {
+                    add_token(create_token(TOK_TO, "=>", lexer->current), lexer);
+                    advance(lexer);
+                } else {
+                    add_token(create_token(TOK_NAME, "=", lexer->current), lexer);
+                }
                 break;
             case '(':
                 add_token(create_token(TOK_LPAREN, "(", lexer->current), lexer);
@@ -131,18 +140,20 @@ void tokenize(Lexer* lexer){
             default:
                 if (isalnum(c) || c == '_'){
                     size_t start = lexer->current;
-                    while (isalnum(c) || c == '_') {
-                        advance(lexer);
-                        c = lexer->source[lexer->current];
+                    char* name = build_name(lexer);
+
+                    TokenType type = TOK_NAME;
+                    if (strcmp(name, "mold") == 0){
+                        type = TOK_MOLD;
+                    } else if (strcmp(name, "with") == 0) {
+                        type = TOK_WITH;
+                    } else if (strcmp(name, "set") == 0) {
+                        type = TOK_SET;
+                    } else if (strcmp(name, "shape") == 0) {
+                        type = TOK_SHAPE;
                     }
-
-                    size_t length = lexer->current - start;
-                    char* string = malloc(length + 1);
-                    memcpy(string, &lexer->source[start], length);
-                    string[length] = '\0';
-
-                    add_token(create_token(TOK_STRING, string, start), lexer);
-                    free(string);
+                    add_token(create_token(type, name, start), lexer);
+                    free(name);
 
                     continue;
                 }
@@ -150,4 +161,20 @@ void tokenize(Lexer* lexer){
         }
         advance(lexer);
     }
+}
+
+char* build_name(Lexer* lexer) {
+    size_t start = lexer->current;
+    char c = lexer->source[lexer->current];
+    while (isalnum(c) || c == '_') {
+        advance(lexer);
+        c = lexer->source[lexer->current];
+    }
+
+    size_t length = lexer->current - start;
+    char* string = malloc(length + 1);
+    memcpy(string, &lexer->source[start], length);
+    string[length] = '\0';
+
+    return string;
 }
