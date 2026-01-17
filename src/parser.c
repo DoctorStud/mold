@@ -139,10 +139,9 @@ void tokenize(Lexer* lexer){
                 break;
             case '/':
                 if (peek(lexer) == '/') {
-                    while(lexer->source[lexer->current] != '\n') { // or EOF
-                        printf("%c\n", lexer->source[lexer->current]);
+                    while(lexer->source[lexer->current] != '\n' && lexer->source[lexer->current] != '\0') { 
                         advance(lexer);
-                    }
+                    }   
                 } else {
                     add_token(create_token(TOK_NAME, "/", lexer->current), lexer);
                 } 
