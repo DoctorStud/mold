@@ -137,6 +137,16 @@ void tokenize(Lexer* lexer){
             case ',':
                 add_token(create_token(TOK_COMMA, ",", lexer->current), lexer);
                 break;
+            case '/':
+                if (peek(lexer) == '/') {
+                    while(lexer->source[lexer->current] != '\n') { // or EOF
+                        printf("%c\n", lexer->source[lexer->current]);
+                        advance(lexer);
+                    }
+                } else {
+                    add_token(create_token(TOK_NAME, "/", lexer->current), lexer);
+                } 
+                break;
             default:
                 if (isalnum(c) || c == '_'){
                     size_t start = lexer->current;
