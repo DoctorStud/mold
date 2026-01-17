@@ -1,6 +1,8 @@
 shape swap: pair(?x, ?y) => pair(?y, ?x) 
 
+shape id: ?x => ?x
 // patata
 set expr: pair(A, B)
 
-mold expr with swap
+
+mold pair(A,B) with swap //caca

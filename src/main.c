@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "node.h"
 #include "engine.h"
 #include "parser.h"
@@ -22,7 +23,34 @@ int main(int argc, char *argv[]) {
         printf("%zu -> %s (%d) \n", lexer->tokens[i]->position, lexer->tokens[i]->name, lexer->tokens[i]->type);
     }
     
-    free_lexer(lexer);
+    Parser* parser = initialize_parser(lexer);
+    parse(parser);
+
+    for (int i = 0; i<parser->shape_count;i++){
+        printf("shape %s: ", parser->shapes[i]->name);
+        print_node(parser->shapes[i]->lhs);
+        printf(" => ");
+        print_node(parser->shapes[i]->rhs);
+        printf("\n");
+    }
+
+    for (int i = 0; i < parser->statement_count;i++){
+        if (parser->statements[i]->type == STMT_MOLD){
+            printf("mold ");
+            print_node(parser->statements[i]->expr);
+            printf(" with %s", parser->statements[i]->shape);
+            printf("\n");
+        } else if (parser->statements[i]->type == STMT_SET) {
+            printf("set %s: ", parser->statements[i]->name);
+            print_node(parser->statements[i]->expr);
+            printf("\n");
+        }
+    }
+
+
+    
+
+    free_lexer(lexer); 
     free(content);
 
     // Node * lhs = create_node(NODE_SYMBOL, "pair");

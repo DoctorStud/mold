@@ -39,6 +39,7 @@ void free_node(Node* node) {
 void print_node(Node* node) {
     if (!node) return;
 
+    if (node->type == NODE_VARIABLE) printf("?");
     printf("%s", node->name);
 
     if (node->child_count > 0) {
